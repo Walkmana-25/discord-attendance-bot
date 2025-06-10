@@ -46,11 +46,12 @@ class AttendanceBot(commands.Bot):
         await setup_commands(self, self.database)
         
         # Sync commands (for development - in production you'd do this manually)
-        if Config.GUILD_ID:
-            guild = discord.Object(id=Config.GUILD_ID)
+        guild_id = Config._get_guild_id()
+        if guild_id:
+            guild = discord.Object(id=guild_id)
             self.tree.copy_global_to(guild=guild)
             await self.tree.sync(guild=guild)
-            logger.info(f"Synced commands to guild {Config.GUILD_ID}")
+            logger.info(f"Synced commands to guild {guild_id}")
         else:
             await self.tree.sync()
             logger.info("Synced commands globally")
@@ -59,7 +60,7 @@ class AttendanceBot(commands.Bot):
     
     async def on_ready(self) -> None:
         """Called when the bot is ready."""
-        logger.info(f"Bot logged in as {self.user} (ID: {self.user.id})")
+        logger.info(f"Bot logged in as {self.user} (ID: {self.user.id if self.user else 'Unknown'})")
         logger.info(f"Discord.py version: {discord.__version__}")
         
         # Set bot status

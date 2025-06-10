@@ -1,6 +1,6 @@
 # Discord Attendance Bot
 
-A comprehensive Discord bot for tracking employee attendance using slash commands and SQLite database (Cloudflare D1 compatible).
+A comprehensive Discord bot for tracking employee attendance using slash commands and SQLite database.
 
 ## Features
 
@@ -24,7 +24,6 @@ A comprehensive Discord bot for tracking employee attendance using slash command
 ### Prerequisites
 - Python 3.9 or higher
 - Discord Bot Token
-- Cloudflare D1 Database (or SQLite for local development)
 
 ### Setup Instructions
 
@@ -50,9 +49,8 @@ A comprehensive Discord bot for tracking employee attendance using slash command
    DISCORD_TOKEN=your_bot_token_here
    GUILD_ID=your_test_guild_id_here
 
-   # Cloudflare D1 Database Configuration  
-   D1_DATABASE_URL=your_d1_database_url
-   D1_AUTH_TOKEN=your_d1_auth_token
+   # SQLite Database Configuration
+   DATABASE_PATH=attendance.db
 
    # Optional Settings
    DEBUG=False
@@ -206,20 +204,6 @@ pytest
    - Use the generated URL to invite bot to your server
    - Ensure bot has necessary permissions
 
-## Cloudflare D1 Setup
-
-1. **Create D1 Database**
-   ```bash
-   wrangler d1 create attendance-bot
-   ```
-
-2. **Get Connection Details**
-   - Database URL from Cloudflare dashboard
-   - API token with D1 permissions
-
-3. **Update Environment**
-   - Add D1_DATABASE_URL and D1_AUTH_TOKEN to `.env`
-
 ## Troubleshooting
 
 ### Common Issues
@@ -231,7 +215,7 @@ pytest
 
 2. **Database connection errors**
    - Verify database file permissions (SQLite)
-   - Check D1 credentials and API tokens
+   - Check database path configuration
    - Review database initialization logs
 
 3. **Import errors**

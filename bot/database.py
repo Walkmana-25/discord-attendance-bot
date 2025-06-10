@@ -12,9 +12,9 @@ logger = logging.getLogger(__name__)
 class Database:
     """Database operations handler for attendance tracking."""
 
-    def __init__(self, db_path: str = "attendance.db"):
+    def __init__(self, db_path: Optional[str] = None):
         """Initialize database connection."""
-        self.db_path = db_path
+        self.db_path = db_path or Config.DATABASE_PATH
 
     async def init_database(self) -> None:
         """Initialize database tables and default data."""

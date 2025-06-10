@@ -13,11 +13,18 @@ class Config:
     
     # Discord Configuration
     DISCORD_TOKEN: str = os.getenv("DISCORD_TOKEN", "")
-    GUILD_ID: Optional[int] = int(os.getenv("GUILD_ID")) if os.getenv("GUILD_ID") is not None else None
+    GUILD_ID: Optional[int] = None
     
-    # Database Configuration
-    D1_DATABASE_URL: str = os.getenv("D1_DATABASE_URL", "")
-    D1_AUTH_TOKEN: str = os.getenv("D1_AUTH_TOKEN", "")
+    @classmethod
+    def _get_guild_id(cls) -> Optional[int]:
+        """Get guild ID from environment variable."""
+        guild_id = os.getenv("GUILD_ID")
+        if guild_id and guild_id.strip() and guild_id.strip().isdigit():
+            return int(guild_id.strip())
+        return None
+    
+    # SQLite Database Configuration
+    DATABASE_PATH: str = os.getenv("DATABASE_PATH", "attendance.db")
     
     # Application Settings
     DEBUG: bool = os.getenv("DEBUG", "False").lower() == "true"
@@ -30,10 +37,6 @@ class Config:
         
         if not cls.DISCORD_TOKEN:
             missing_vars.append("DISCORD_TOKEN")
-        if not cls.D1_DATABASE_URL:
-            missing_vars.append("D1_DATABASE_URL")
-        if not cls.D1_AUTH_TOKEN:
-            missing_vars.append("D1_AUTH_TOKEN")
             
         if missing_vars:
             raise ValueError(f"Missing required environment variables: {', '.join(missing_vars)}")
