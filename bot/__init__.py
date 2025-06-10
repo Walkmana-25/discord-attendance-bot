@@ -1,0 +1,1 @@
+"""Discord Attendance Bot Package"""
