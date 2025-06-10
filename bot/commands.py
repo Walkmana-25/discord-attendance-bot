@@ -14,7 +14,12 @@ from .utils import (
     create_info_embed,
     format_attendance_record,
     validate_notes,
-    truncate_text
+    truncate_text,
+    get_week_start_end,
+    group_records_by_date,
+    format_date_japanese,
+    calculate_daily_work_hours,
+    format_duration
 )
 
 logger = logging.getLogger(__name__)
@@ -449,6 +454,161 @@ class AttendanceCommands(commands.Cog):
                 interaction.user
             )
             await interaction.followup.send(embed=embed, ephemeral=True)
+
+    @app_commands.command(name="this-week", description="View your attendance for this week")
+    async def this_week(self, interaction: discord.Interaction):
+        """Show user's attendance for the current week."""
+        await interaction.response.defer()
+        
+        try:
+            await self._show_weekly_attendance(interaction, weeks_offset=0, week_name="今週")
+        except Exception as e:
+            logger.error(f"Error in this_week command: {e}")
+            embed = create_error_embed(
+                "System Error",
+                "An error occurred while retrieving this week's attendance. Please try again.",
+                interaction.user
+            )
+            await interaction.followup.send(embed=embed, ephemeral=True)
+
+    @app_commands.command(name="last-week", description="View your attendance for last week")
+    async def last_week(self, interaction: discord.Interaction):
+        """Show user's attendance for the previous week."""
+        await interaction.response.defer()
+        
+        try:
+            await self._show_weekly_attendance(interaction, weeks_offset=-1, week_name="先週")
+        except Exception as e:
+            logger.error(f"Error in last_week command: {e}")
+            embed = create_error_embed(
+                "System Error",
+                "An error occurred while retrieving last week's attendance. Please try again.",
+                interaction.user
+            )
+            await interaction.followup.send(embed=embed, ephemeral=True)
+
+    async def _show_weekly_attendance(self, interaction: discord.Interaction, weeks_offset: int, week_name: str):
+        """Helper method to show weekly attendance."""
+        from datetime import datetime, timedelta
+        
+        # Get or create user
+        user = await self.db.get_or_create_user(
+            str(interaction.user.id),
+            interaction.user.display_name
+        )
+        
+        if user.id is None:
+            embed = create_error_embed("Database Error", "Failed to create user record.", interaction.user)
+            await interaction.followup.send(embed=embed, ephemeral=True)
+            return
+        
+        # Calculate week start and end
+        now = datetime.now()
+        week_start, week_end = get_week_start_end(now, weeks_offset)
+        
+        # Get records for the week
+        records = await self.db.get_user_records_by_week(user.id, week_start, week_end)
+        
+        if not records:
+            embed = create_info_embed(
+                f"{week_name}の履歴",
+                f"{week_name}の出勤記録がありません。",
+                interaction.user
+            )
+            await interaction.followup.send(embed=embed, ephemeral=True)
+            return
+        
+        # Group records by date
+        grouped_records = group_records_by_date(records)
+        
+        # Get attendance types for display
+        attendance_types = await self.db.get_attendance_types()
+        type_map = {at.id: at.type_name for at in attendance_types}
+        
+        # Create embed
+        embed = discord.Embed(
+            title=f"📅 {week_name}の履歴",
+            description=f"{week_start.strftime('%Y年%m月%d日')} ～ {week_end.strftime('%Y年%m月%d日')}",
+            color=discord.Color.blue(),
+            timestamp=discord.utils.utcnow()
+        )
+        embed.set_author(
+            name=interaction.user.display_name,
+            icon_url=interaction.user.avatar.url if interaction.user.avatar else None
+        )
+        
+        # Process each day
+        total_work_hours = 0.0
+        work_days = 0
+        incomplete_sessions = []
+        attendance_type_count = {}
+        
+        for current_date in [week_start.date() + timedelta(days=i) for i in range(7)]:
+            day_records = grouped_records.get(current_date, [])
+            
+            if day_records:
+                work_days += 1
+                day_hours, has_incomplete = calculate_daily_work_hours(day_records)
+                total_work_hours += day_hours
+                
+                if has_incomplete:
+                    incomplete_sessions.append(current_date)
+                
+                # Count attendance types
+                for record in day_records:
+                    if record.record_type == "clock_in" and record.attendance_type_id:
+                        type_name = type_map.get(record.attendance_type_id, "Unknown")
+                        attendance_type_count[type_name] = attendance_type_count.get(type_name, 0) + 1
+                
+                # Format daily summary
+                day_text = []
+                sorted_day_records = sorted(day_records, key=lambda r: r.timestamp or datetime.min)
+                
+                for record in sorted_day_records:
+                    if record.timestamp:
+                        time_str = record.timestamp.strftime('%H:%M')
+                        if record.record_type == "clock_in":
+                            type_name = type_map.get(record.attendance_type_id, "")
+                            day_text.append(f"🟢 {time_str} 出勤 ({type_name})")
+                        else:
+                            day_text.append(f"🔴 {time_str} 退勤")
+                
+                if day_hours > 0:
+                    day_text.append(f"⏰ 勤務時間: {format_duration(day_hours)}")
+                
+                if has_incomplete:
+                    day_text.append("⚠️ 未完了セッション")
+                
+                embed.add_field(
+                    name=format_date_japanese(current_date),
+                    value="\n".join(day_text) if day_text else "記録なし",
+                    inline=False
+                )
+        
+        # Add weekly summary
+        summary_parts = []
+        summary_parts.append(f"📊 **週間統計**")
+        summary_parts.append(f"総勤務時間: {format_duration(total_work_hours)}")
+        summary_parts.append(f"出勤日数: {work_days}日")
+        
+        if work_days > 0:
+            avg_hours = total_work_hours / work_days
+            summary_parts.append(f"平均勤務時間: {format_duration(avg_hours)}")
+        
+        if attendance_type_count:
+            most_used = max(attendance_type_count.items(), key=lambda x: x[1])
+            summary_parts.append(f"主な勤務タイプ: {most_used[0]} ({most_used[1]}回)")
+        
+        if incomplete_sessions:
+            summary_parts.append(f"⚠️ 未完了セッション: {len(incomplete_sessions)}日")
+        
+        embed.add_field(
+            name="",
+            value="\n".join(summary_parts),
+            inline=False
+        )
+        
+        await interaction.followup.send(embed=embed, ephemeral=True)
 
 async def setup(bot: commands.Bot, database: Database):
     """Set up the commands cog."""

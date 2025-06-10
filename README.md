@@ -10,6 +10,8 @@ A comprehensive Discord bot for tracking employee attendance using slash command
 - ✅ `/my-summary` - View personal attendance summary and recent activity
 - ✅ `/add-attendance-type` - Add new attendance types to the system
 - ✅ `/list-attendance-types` - View all available attendance types
+- ✅ `/this-week` - View detailed attendance history for the current week
+- ✅ `/last-week` - View detailed attendance history for the previous week
 - ✅ SQLite database with proper schema and relationships
 - ✅ Duplicate clock-in/out prevention
 - ✅ Rich Discord embeds with proper formatting
@@ -152,6 +154,26 @@ Shows all available attendance types including:
 - Active attendance types with descriptions
 - Inactive attendance types (if any)
 - Total count of types
+
+#### This Week's History
+```
+/this-week
+```
+Shows detailed attendance history for the current week (Monday to Sunday) including:
+- Daily clock-in/out times with attendance types
+- Daily work hours calculation
+- Weekly statistics (total hours, work days, average hours)
+- Most used attendance type
+- Incomplete sessions (clock-in without clock-out)
+
+#### Last Week's History
+```
+/last-week
+```
+Shows detailed attendance history for the previous week (Monday to Sunday) including:
+- Same detailed information as `/this-week`
+- Useful for reviewing past week performance
+- Weekly summaries and statistics
 
 ### Business Logic
 

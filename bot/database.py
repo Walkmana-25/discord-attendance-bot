@@ -359,6 +359,35 @@ class Database:
                 for row in rows
             ]
 
+    async def get_user_records_by_week(
+        self,
+        user_id: int,
+        start_date: datetime,
+        end_date: datetime
+    ) -> List[AttendanceRecord]:
+        """Get attendance records for a user within a specific week."""
+        async with aiosqlite.connect(self.db_path) as db:
+            cursor = await db.execute("""
+                SELECT id, user_id, record_type, attendance_type_id, timestamp, notes
+                FROM attendance_records
+                WHERE user_id = ? AND timestamp BETWEEN ? AND ?
+                ORDER BY timestamp ASC
+            """, (user_id, start_date.isoformat(), end_date.isoformat()))
+            
+            rows = await cursor.fetchall()
+            
+            return [
+                AttendanceRecord(
+                    id=row[0],
+                    user_id=row[1],
+                    record_type=row[2],
+                    attendance_type_id=row[3],
+                    timestamp=datetime.fromisoformat(row[4]) if row[4] else None,
+                    notes=row[5]
+                )
+                for row in rows
+            ]
+
     async def close(self) -> None:
         """Close database connections."""
         # aiosqlite handles connection closing automatically
