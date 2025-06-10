@@ -8,6 +8,8 @@ A comprehensive Discord bot for tracking employee attendance using slash command
 - ✅ `/clock-in` - Record clock-in with attendance type and optional notes
 - ✅ `/clock-out` - Record clock-out with optional notes  
 - ✅ `/my-summary` - View personal attendance summary and recent activity
+- ✅ `/add-attendance-type` - Add new attendance types to the system
+- ✅ `/list-attendance-types` - View all available attendance types
 - ✅ SQLite database with proper schema and relationships
 - ✅ Duplicate clock-in/out prevention
 - ✅ Rich Discord embeds with proper formatting
@@ -134,6 +136,22 @@ Shows your personal attendance summary including:
 - Total attendance records
 - Current status (clocked in/out)
 - Recent activity with timestamps
+
+#### Add Attendance Type
+```
+/add-attendance-type type_name:Project Work description:Working on specific projects
+```
+- **type_name**: Required - Name of the new attendance type (max 50 characters)
+- **description**: Optional - Description of the attendance type (max 200 characters)
+
+#### List Attendance Types
+```
+/list-attendance-types
+```
+Shows all available attendance types including:
+- Active attendance types with descriptions
+- Inactive attendance types (if any)
+- Total count of types
 
 ### Business Logic
 

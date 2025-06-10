@@ -291,6 +291,165 @@ class AttendanceCommands(commands.Cog):
             )
             await interaction.followup.send(embed=embed, ephemeral=True)
 
+    @app_commands.command(name="add-attendance-type", description="Add a new attendance type")
+    @app_commands.describe(
+        type_name="Name of the new attendance type",
+        description="Optional description for the attendance type"
+    )
+    async def add_attendance_type(
+        self,
+        interaction: discord.Interaction,
+        type_name: str,
+        description: Optional[str] = None
+    ):
+        """Add a new attendance type."""
+        await interaction.response.defer()
+        
+        try:
+            # Validate type_name
+            if not type_name or len(type_name.strip()) == 0:
+                embed = create_error_embed(
+                    "Invalid Input",
+                    "Attendance type name cannot be empty.",
+                    interaction.user
+                )
+                await interaction.followup.send(embed=embed, ephemeral=True)
+                return
+            
+            # Clean and validate inputs
+            clean_type_name = type_name.strip()
+            clean_description = description.strip() if description else ""
+            
+            # Check length limits
+            if len(clean_type_name) > 50:
+                embed = create_error_embed(
+                    "Invalid Input",
+                    "Attendance type name must be 50 characters or less.",
+                    interaction.user
+                )
+                await interaction.followup.send(embed=embed, ephemeral=True)
+                return
+            
+            if len(clean_description) > 200:
+                embed = create_error_embed(
+                    "Invalid Input",
+                    "Description must be 200 characters or less.",
+                    interaction.user
+                )
+                await interaction.followup.send(embed=embed, ephemeral=True)
+                return
+            
+            # Check if attendance type already exists
+            if await self.db.attendance_type_exists(clean_type_name):
+                embed = create_error_embed(
+                    "Duplicate Entry",
+                    f"Attendance type '{clean_type_name}' already exists.",
+                    interaction.user
+                )
+                await interaction.followup.send(embed=embed, ephemeral=True)
+                return
+            
+            # Create new attendance type
+            new_type = await self.db.create_attendance_type(clean_type_name, clean_description)
+            
+            # Create success message
+            description_text = f"Successfully added attendance type **{new_type.type_name}**"
+            if new_type.description:
+                description_text += f"\n📝 Description: {new_type.description}"
+            
+            embed = create_success_embed("Attendance Type Added", description_text, interaction.user)
+            await interaction.followup.send(embed=embed)
+            
+            logger.info(f"User {interaction.user.display_name} added attendance type: {new_type.type_name}")
+            
+        except Exception as e:
+            logger.error(f"Error in add_attendance_type command: {e}")
+            embed = create_error_embed(
+                "System Error",
+                "An error occurred while adding the attendance type. Please try again.",
+                interaction.user
+            )
+            await interaction.followup.send(embed=embed, ephemeral=True)
+
+    @app_commands.command(name="list-attendance-types", description="List all attendance types")
+    async def list_attendance_types(self, interaction: discord.Interaction):
+        """List all attendance types."""
+        await interaction.response.defer()
+        
+        try:
+            # Get all attendance types
+            all_types = await self.db.get_all_attendance_types()
+            
+            if not all_types:
+                embed = create_info_embed(
+                    "No Attendance Types",
+                    "No attendance types found in the system.",
+                    interaction.user
+                )
+                await interaction.followup.send(embed=embed, ephemeral=True)
+                return
+            
+            # Separate active and inactive types
+            active_types = [at for at in all_types if at.is_active]
+            inactive_types = [at for at in all_types if not at.is_active]
+            
+            # Create embed
+            embed = discord.Embed(
+                title="📋 Attendance Types",
+                color=discord.Color.blue(),
+                timestamp=discord.utils.utcnow()
+            )
+            embed.set_author(
+                name=interaction.user.display_name,
+                icon_url=interaction.user.avatar.url if interaction.user.avatar else None
+            )
+            
+            # Add active types
+            if active_types:
+                active_list = []
+                for at in active_types:
+                    type_text = f"**{at.type_name}**"
+                    if at.description:
+                        type_text += f"\n  ├ {at.description}"
+                    active_list.append(type_text)
+                
+                embed.add_field(
+                    name="🟢 Active Types",
+                    value="\n\n".join(active_list),
+                    inline=False
+                )
+            
+            # Add inactive types if any
+            if inactive_types:
+                inactive_list = []
+                for at in inactive_types:
+                    type_text = f"~~{at.type_name}~~"
+                    if at.description:
+                        type_text += f"\n  ├ ~~{at.description}~~"
+                    inactive_list.append(type_text)
+                
+                embed.add_field(
+                    name="🔴 Inactive Types",
+                    value="\n\n".join(inactive_list),
+                    inline=False
+                )
+            
+            # Add footer with count
+            total_count = len(all_types)
+            active_count = len(active_types)
+            embed.set_footer(text=f"Total: {total_count} types ({active_count} active)")
+            
+            await interaction.followup.send(embed=embed, ephemeral=True)
+            
+        except Exception as e:
+            logger.error(f"Error in list_attendance_types command: {e}")
+            embed = create_error_embed(
+                "System Error",
+                "An error occurred while retrieving attendance types. Please try again.",
+                interaction.user
+            )
+            await interaction.followup.send(embed=embed, ephemeral=True)
+
 async def setup(bot: commands.Bot, database: Database):
     """Set up the commands cog."""
     await bot.add_cog(AttendanceCommands(bot, database))

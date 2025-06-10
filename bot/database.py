@@ -157,6 +157,53 @@ class Database:
                 )
             return None
 
+    async def create_attendance_type(self, type_name: str, description: str = "") -> AttendanceType:
+        """Create a new attendance type."""
+        async with aiosqlite.connect(self.db_path) as db:
+            cursor = await db.execute("""
+                INSERT INTO attendance_types (type_name, description, is_active)
+                VALUES (?, ?, TRUE)
+            """, (type_name, description))
+            await db.commit()
+            
+            attendance_type_id = cursor.lastrowid
+            logger.info(f"Created new attendance type: {type_name} (ID: {attendance_type_id})")
+            
+            return AttendanceType(
+                id=attendance_type_id,
+                type_name=type_name,
+                description=description,
+                is_active=True
+            )
+
+    async def attendance_type_exists(self, type_name: str) -> bool:
+        """Check if attendance type exists (case-insensitive)."""
+        async with aiosqlite.connect(self.db_path) as db:
+            cursor = await db.execute(
+                "SELECT COUNT(*) FROM attendance_types WHERE LOWER(type_name) = LOWER(?)",
+                (type_name,)
+            )
+            row = await cursor.fetchone()
+            return row[0] > 0 if row else False
+
+    async def get_all_attendance_types(self) -> List[AttendanceType]:
+        """Get all attendance types (including inactive)."""
+        async with aiosqlite.connect(self.db_path) as db:
+            cursor = await db.execute(
+                "SELECT id, type_name, description, is_active FROM attendance_types ORDER BY type_name"
+            )
+            rows = await cursor.fetchall()
+            
+            return [
+                AttendanceType(
+                    id=row[0],
+                    type_name=row[1],
+                    description=row[2],
+                    is_active=bool(row[3])
+                )
+                for row in rows
+            ]
+
     async def get_latest_record(self, user_id: int) -> Optional[AttendanceRecord]:
         """Get the latest attendance record for a user."""
         async with aiosqlite.connect(self.db_path) as db:
